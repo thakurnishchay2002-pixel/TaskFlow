@@ -1,0 +1,45 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: taskflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-taskflow}
+      MYSQL_USER: ${MYSQL_USER:-taskflow}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-taskflow}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
+    ports:
+      - "3306:3306"
+    volumes:
+      - taskflow_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: taskflow-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/taskflow?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: ${MYSQL_USER:-taskflow}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-taskflow}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: taskflow-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  taskflow_mysql:
